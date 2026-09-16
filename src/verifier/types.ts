@@ -4,5 +4,7 @@ export interface Claim {
     isOver18: boolean;
     issuerPublicKey: string;
     signature: string;
+    expiresAt: number;
+    nonce: string;
 }
 
