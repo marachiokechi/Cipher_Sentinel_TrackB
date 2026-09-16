@@ -1,7 +1,5 @@
 import * as ed from '@noble/ed25519';
 
-import { Buffer } from 'buffer'
-
 export interface KeyPair {
     privateKey: Uint8Array;
     publicKeyHex: string;

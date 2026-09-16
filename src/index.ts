@@ -1,35 +1,62 @@
+import assert from "node:assert";
 import { Claim } from "./verifier/types.js";
 import { verifyAgeClaim } from "./verifier/verifier.js";
+import { verifySignature } from "./crypto/ed25519.js";
 
-const currentSessionNonce = "SESSION-9981-FDE"
+const activeNonce = "SESSION-9981-FDZ"
 
 const validClaim: Claim = {
-    id: "CLAIM-101",
-    subjectId: "USER-404",
+    id: "CLAIM-100",
+    subjectId: "USER-99",
     isOver18: true,
-    issuerPublicKey: "a3f890b2c12",
-    signature: "99e1a05ff78",
-    expiresAt: Date.now() + 60000,
-    nonce: currentSessionNonce,
+    issuerPublicKey: "pub_key_b2c12",
+    signature: "sig_5ff78",
+    expiresAt: Date.now() + 10000,
+    nonce: activeNonce,
 };
 
-const invalidClaim: Claim = {
-    id: "CLAIM-102",
-    subjectId: "USER-505",
-    isOver18: false,
-    issuerPublicKey: "a3f890b2c12",
-    signature: "99e1a05fd63",
-    expiresAt: Date.now() - 5000,
-    nonce: currentSessionNonce,
-};
+function runTestSuite() {
+    console.log("Running Sentinel Security Test Suite...");
 
-const badNonceClaim: Claim = {
+    // Valid proof success
+    assert.strictEqual(
+        verifyAgeClaim(validClaim, activeNonce),
+        true,
+        "FAILED: Valid claim was rejected"
+    );
+    console.log("Test 1 Passes: Valid Claim accepted.");
+
+// Expired Proof fails
+const expiredClaim = {
     ...validClaim,
-    id: "CLAIM-103",
-    nonce: "OLD-REPLAYED-NONCE",
+    expiresAt: Date.now() - 1000
+};
+assert.strictEqual(
+    verifyAgeClaim(expiredClaim, activeNonce),
+    false,
+    "FAILED: Expired Claim was accepted"
+);
+console.log("Test 2 Passed: Expired Claim rejected.");
+
+// Replayed/Mismatched Nonce Fails
+const replayedClaim = { ...validClaim, nonce: "STALE_NONCE_999" };
+  assert.strictEqual(
+    verifyAgeClaim(replayedClaim, activeNonce),
+    false,
+    "FAILED: Replayed nonce was accepted"
+  );
+  console.log("Test 3 Passed: Replayed nonce rejected.");
+
+  // Test 4: Underage payload fails
+  const underageClaim = { ...validClaim, isOver18: false };
+  assert.strictEqual(
+    verifyAgeClaim(underageClaim, activeNonce),
+    false,
+    "FAILED: Underage claim was accepted"
+  );
+  console.log("Test 4 Passed: Underage claim rejected.");
+
+  console.log("All 4 core security tests passed!");
 }
 
-console.log("Running Sentinel Extended Verifier Checks...");
-console.log("Valid Claim:", verifyAgeClaim(validClaim, currentSessionNonce));
-console.log("Expired Claim:", verifyAgeClaim(invalidClaim, currentSessionNonce));
-console.log("Replayed Nonce Claim:", verifyAgeClaim(badNonceClaim, currentSessionNonce));
+runTestSuite();
