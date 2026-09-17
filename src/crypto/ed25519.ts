@@ -13,6 +13,11 @@ export async function generateIssuerKeyPair(): Promise<KeyPair> {
     return { privateKey, publicKeyHex };
 }
 
+function serializePayload(payload: any): string {
+    if (typeof payload === 'string') return payload;
+    return JSON.stringify(payload, Object.keys(payload).sort());
+}
+
 export async function signPayload(payload: object, privateKey: Uint8Array): Promise<string> {
     const messageBytes = Buffer.from(JSON.stringify(payload));
     const signatureBytes = await ed.signAsync(messageBytes, privateKey);
@@ -26,7 +31,8 @@ export async function verifySignature(
 ): Promise<boolean> {
     try {
         const signatureBytes = Buffer.from(signatureHex, 'hex');
-        const messageBytes = Buffer.from(JSON.stringify(payload));
+        const messageString = typeof payload === 'string' ? payload : JSON.stringify(payload);
+        const messageBytes = Buffer.from(messageString);
         const publicKeyBytes = Buffer.from(publicKeyHex, 'hex');
 
         return await ed.verifyAsync(signatureBytes, messageBytes, publicKeyBytes);
