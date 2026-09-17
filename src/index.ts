@@ -2,11 +2,12 @@ import assert from "node:assert";
 import { Claim } from "./verifier/types.js";
 import { verifyAgeClaim } from "./verifier/verifier.js";
 import { generateIssuerKeyPair, signPayload } from "./crypto/ed25519.js";
+import { nonceManager } from "./security/nonceStore.js";
 
 async function runTestSuite() {
     console.log("Running Sentinel Integrated Crypto & Security Test Suite...");
 
-    const activeNonce = "SESSION-9981-FDZ"
+    const activeNonce = nonceManager.generateNonce()
 
     const { privateKey, publicKeyHex } = await generateIssuerKeyPair();
 
@@ -26,42 +27,49 @@ async function runTestSuite() {
         signature: validSignature
     };
 
-        // Real cryptographic proof passes
+        // Valid Claim with active nonce passes
         assert.strictEqual(
-            await verifyAgeClaim(validClaim, activeNonce),
+            await verifyAgeClaim(validClaim),
             true,
-            "FAILED: Real cryptographic proof rejected"
+            "FAILED: Valid Claim rejected"
         );
-        console.log("Test 1 Passed: Valid Ed25519 Claim accepted.");
+        console.log("Test 1 Passed: Valid Ed25519 Claim with active nonce accepted.");
 
-    // Tampered payload fails cryptographic check
+    // Tampered Payload
+    const tamperNonce = nonceManager.generateNonce();
+    const tamperedPayload = { ...claimPayload, isOver18: false, nonce: tamperNonce };
     const tamperedClaim: Claim = {
-        ...validClaim,
-        isOver18: false
+        ...tamperedPayload,
+        issuerPublicKey: publicKeyHex,
+        signature: validSignature,
     };
     assert.strictEqual(
-        await verifyAgeClaim(tamperedClaim, activeNonce),
+        await verifyAgeClaim(tamperedClaim),
         false,
         "FAILED: Tampered payload accepted"
     );
     console.log("Test 2 Passed: Tampered claim signature rejected.");
 
-    // Expired proof fails
-    const expiredClaim = {
-        ...validClaim,
-        expiresAt: Date.now() - 1000
+    // Expired Claim
+    const expireNonce = nonceManager.generateNonce();
+    const expiredPayload = { ...claimPayload, expiresAt: Date.now() - 1000, nonce: expireNonce };
+    const expiredSignature = await signPayload(expiredPayload, privateKey);
+    const expiredClaim: Claim = {
+        ...expiredPayload,
+        issuerPublicKey: publicKeyHex,
+        signature: expiredSignature,
     };
     assert.strictEqual(
-        await verifyAgeClaim(expiredClaim, activeNonce),
+        await verifyAgeClaim(expiredClaim),
         false,
         "FAILED: Expired Claim accepted"
     );
     console.log("Test 3 Passed: Expired Claim rejected.");
 
-    // Replayed/Mismatched Nonce Fails
-    const replayedClaim = { ...validClaim, nonce: "STALE_NONCE_999" };
+    // Replayed/Invalid Nonce
+    const replayedClaim: Claim = { ...validClaim, nonce: "STALE_NONCE_999" };
     assert.strictEqual(
-        await verifyAgeClaim(replayedClaim, activeNonce),
+        await verifyAgeClaim(replayedClaim),
         false,
         "FAILED: Replayed nonce accepted"
     );

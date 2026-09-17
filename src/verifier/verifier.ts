@@ -1,12 +1,13 @@
 import { Claim, ClaimPayload } from "./types.js";
 import { verifySignature } from "../crypto/ed25519.js";
+import { nonceManager } from "../security/nonceStore.js";
 
-export async function verifyAgeClaim(claim: Claim, expectedNonce: string): Promise<boolean> {
+export async function verifyAgeClaim(claim: Claim): Promise<boolean> {
     const hasValidAge = claim.isOver18 === true;
     const hasSignature = claim.signature.trim() !== "";
     const hasPublicKey = claim.issuerPublicKey.trim() !== "";
     const isNotExpired = Date.now() < claim.expiresAt;
-    const isValidNonce = claim.nonce === expectedNonce && claim.nonce.trim() !== "";
+    const isValidNonce = nonceManager.consumeNonce(claim.nonce);
 
     if (!hasValidAge || !hasSignature || !hasPublicKey || !isNotExpired || !isValidNonce) {
         return false;
