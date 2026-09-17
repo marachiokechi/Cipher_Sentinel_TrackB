@@ -5,7 +5,7 @@ import { nonceLimiter, verifyLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
-router.get("/nonce", nonceLimiter, (_req: Request, res: Response) => {
+router.post("/nonce", nonceLimiter, (_req: Request, res: Response) => {
     const nonce = nonceManager.generateNonce();
     res.status(200).json({ nonce });
 });
